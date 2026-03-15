@@ -6,6 +6,7 @@ class UserProfile {
   final String gender;
   final String activityLevel;
   final String goalType;
+  final int aggressiveness;
 
   UserProfile({
     required this.weightKg,
@@ -15,6 +16,7 @@ class UserProfile {
     required this.gender,
     required this.activityLevel,
     required this.goalType,
+    this.aggressiveness = 2,
   });
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
@@ -26,6 +28,7 @@ class UserProfile {
       gender: (json['gender'] ?? 'male').toString(),
       activityLevel: (json['activityLevel'] ?? 'moderate').toString(),
       goalType: (json['goalType'] ?? 'recomp').toString(),
+      aggressiveness: (json['aggressiveness'] as num?)?.toInt() ?? 2,
     );
   }
 
@@ -38,6 +41,7 @@ class UserProfile {
       'gender': gender,
       'activityLevel': activityLevel,
       'goalType': goalType,
+      'aggressiveness': aggressiveness,
     };
   }
 }
@@ -55,6 +59,7 @@ class MacroCalculations {
   final int fatCalories;
   final Map<String, dynamic> factors;
   final Map<String, dynamic> formulas;
+  final String goalLabel;
 
   MacroCalculations({
     required this.bmr,
@@ -69,6 +74,7 @@ class MacroCalculations {
     required this.fatCalories,
     required this.factors,
     required this.formulas,
+    this.goalLabel = '',
   });
 
   factory MacroCalculations.fromJson(Map<String, dynamic> json) {
@@ -86,6 +92,7 @@ class MacroCalculations {
       fatCalories: (results['fatCalories'] ?? 0) as int,
       factors: (json['factors'] as Map<String, dynamic>? ?? {}),
       formulas: (json['formulas'] as Map<String, dynamic>? ?? {}),
+      goalLabel: ((json['results'] as Map<String, dynamic>?)?['goalLabel'] ?? '').toString(),
     );
   }
 }

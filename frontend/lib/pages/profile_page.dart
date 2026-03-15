@@ -21,6 +21,7 @@ class _ProfilePageState extends State<ProfilePage> {
   String _gender = 'male';
   String _activityLevel = 'moderate';
   String _goalType = 'recomp';
+  int _aggressiveness = 2;
 
   @override
   void initState() {
@@ -38,6 +39,7 @@ class _ProfilePageState extends State<ProfilePage> {
         _gender = profile.gender;
         _activityLevel = profile.activityLevel;
         _goalType = profile.goalType;
+        _aggressiveness = profile.aggressiveness;
       });
     });
   }
@@ -64,6 +66,7 @@ class _ProfilePageState extends State<ProfilePage> {
       gender: _gender,
       activityLevel: _activityLevel,
       goalType: _goalType,
+      aggressiveness: _aggressiveness,
     );
 
     await context.read<ProfileService>().saveProfile(profile);
@@ -136,15 +139,33 @@ class _ProfilePageState extends State<ProfilePage> {
                     onChanged: (v) => setState(() => _activityLevel = v ?? 'moderate'),
                   ),
                   const SizedBox(height: 10),
-                  DropdownButtonFormField<String>(
-                    value: _goalType,
-                    decoration: const InputDecoration(labelText: 'Goal'),
-                    items: const [
-                      DropdownMenuItem(value: 'maintenance', child: Text('Maintenance')),
-                      DropdownMenuItem(value: 'recomp', child: Text('Recomposition')),
+                  // Goal presets
+                  const Text('Goal', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      _goalChip('maintenance', '⚖️', 'Maintain'),
+                      _goalChip('recomp', '🔄', 'Recomp'),
+                      _goalChip('fat_loss', '🔥', 'Fat Loss'),
+                      _goalChip('muscle_gain', '💪', 'Muscle'),
                     ],
-                    onChanged: (v) => setState(() => _goalType = v ?? 'recomp'),
                   ),
+                  if (_goalType == 'fat_loss' || _goalType == 'muscle_gain') ...[
+                    const SizedBox(height: 10),
+                    const Text('Aggressiveness', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        _aggChip(1, 'Mild'),
+                        const SizedBox(width: 8),
+                        _aggChip(2, 'Moderate'),
+                        const SizedBox(width: 8),
+                        _aggChip(3, 'Aggressive'),
+                      ],
+                    ),
+                  ],
                   const SizedBox(height: 12),
                   ElevatedButton.icon(
                     onPressed: profileService.isLoading ? null : _saveProfile,
@@ -164,6 +185,13 @@ class _ProfilePageState extends State<ProfilePage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      if (calculations.goalLabel.isNotEmpty) ...[
+                        Text(
+                          calculations.goalLabel,
+                          style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF3D5A40), fontSize: 15),
+                        ),
+                        const SizedBox(height: 6),
+                      ],
                       Text('BMR (Mifflin-St Jeor): ${calculations.bmr} kcal'),
                       Text('Maintenance Calories: ${calculations.maintenanceCalories} kcal'),
                       Text('Recomp Calories: ${calculations.recompCalories} kcal'),
@@ -190,6 +218,48 @@ class _ProfilePageState extends State<ProfilePage> {
               label: const Text('Logout'),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _goalChip(String value, String emoji, String label) {
+    final selected = _goalType == value;
+    return GestureDetector(
+      onTap: () => setState(() => _goalType = value),
+      child: Chip(
+        backgroundColor: selected ? const Color(0xFF3D5A40) : null,
+        label: Text(
+          '$emoji $label',
+          style: TextStyle(color: selected ? Colors.white : null, fontSize: 13),
+        ),
+      ),
+    );
+  }
+
+  Widget _aggChip(int value, String label) {
+    final selected = _aggressiveness == value;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _aggressiveness = value),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            color: selected ? const Color(0xFF3D5A40) : null,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: selected ? const Color(0xFF3D5A40) : Colors.grey.shade300,
+            ),
+          ),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: selected ? Colors.white : Colors.grey.shade700,
+            ),
+          ),
         ),
       ),
     );

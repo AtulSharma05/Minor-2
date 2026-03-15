@@ -30,6 +30,7 @@ router.put('/', requireAuth, async (req, res) => {
     gender: req.body.gender,
     activityLevel: req.body.activityLevel,
     goalType: req.body.goalType ?? 'recomp',
+    aggressiveness: req.body.aggressiveness !== undefined ? Number(req.body.aggressiveness) : 2,
   };
 
   const profile = await UserProfile.findOneAndUpdate(

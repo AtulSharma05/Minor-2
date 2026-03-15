@@ -13,6 +13,7 @@ import 'pages/home_page.dart';
 import 'pages/log_meal_page.dart';
 import 'pages/meal_history_page.dart';
 import 'pages/create_nutrition_plan_page.dart';
+import 'pages/onboarding_page.dart';
 
 void main() {
   runApp(const NutriPalApp());
@@ -52,6 +53,7 @@ class NutriPalApp extends StatelessWidget {
           '/log-meal': (_) => const LogMealPage(),
           '/meal-history': (_) => const MealHistoryPage(),
           '/create-nutrition-plan': (_) => const CreateNutritionPlanPage(),
+          '/onboarding': (_) => const OnboardingPage(),
         },
       ),
     );

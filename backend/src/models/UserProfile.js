@@ -21,9 +21,10 @@ const userProfileSchema = new mongoose.Schema(
     },
     goalType: {
       type: String,
-      enum: ['maintenance', 'recomp'],
+      enum: ['maintenance', 'recomp', 'fat_loss', 'muscle_gain'],
       default: 'recomp',
     },
+    aggressiveness: { type: Number, min: 1, max: 3, default: 2 },
   },
   { timestamps: true }
 );
