@@ -4,6 +4,7 @@ import 'services/auth_service.dart';
 import 'services/api_service.dart';
 import 'services/meal_service.dart';
 import 'services/nutrition_plan_service.dart';
+import 'services/profile_service.dart';
 import 'theme/app_theme.dart';
 import 'pages/welcome_page.dart';
 import 'pages/login_page.dart';
@@ -30,6 +31,9 @@ class NutriPalApp extends StatelessWidget {
         ),
         ChangeNotifierProvider<MealService>(
           create: (context) => MealService(context.read<ApiService>()),
+        ),
+        ChangeNotifierProvider<ProfileService>(
+          create: (context) => ProfileService(context.read<ApiService>()),
         ),
         Provider<NutritionPlanService>(
           create: (context) => NutritionPlanService(context.read<ApiService>()),
