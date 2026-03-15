@@ -17,6 +17,7 @@ app.get('/health', (req, res) => {
 app.use('/api/v1/auth', require('./routes/auth.routes'));
 app.use('/api/v1/meals', require('./routes/meals.routes'));
 app.use('/api/v1/plans', require('./routes/plans.routes'));
+app.use('/api/v1/profile', require('./routes/profile.routes'));
 
 app.use((err, req, res, next) => {
   console.error(err);

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../services/meal_service.dart';
+import '../services/profile_service.dart';
 
 class AnalyticsPage extends StatefulWidget {
   const AnalyticsPage({super.key});
@@ -31,6 +32,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
   @override
   Widget build(BuildContext context) {
     final mealService = context.watch<MealService>();
+    final profileService = context.watch<ProfileService>();
     final now = DateTime.now();
     final todayDay = DateTime(now.year, now.month, now.day);
     final startDay = todayDay.subtract(Duration(days: _periodDays - 1));
@@ -73,6 +75,37 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
     final macroCalTotal = (proteinCal + carbsCal + fatsCal) == 0 ? 1 : (proteinCal + carbsCal + fatsCal);
     final periodLabel = _periodDays == 1 ? 'Today' : '$_periodDays days';
 
+    // ── 7-day adherence (always last 7 days regardless of selected period) ──
+    final calTarget = profileService.calculations?.targetCalories ?? 0;
+    final proteinTarget = profileService.calculations?.proteinG ?? 0;
+    List<Map<String, dynamic>>? adherenceData;
+    if (calTarget > 0) {
+      final aStart = todayDay.subtract(const Duration(days: 6));
+      final aMap = <DateTime, Map<String, int>>{};
+      for (final meal in mealService.entries) {
+        final d = DateTime(meal.createdAt.year, meal.createdAt.month, meal.createdAt.day);
+        if (!d.isBefore(aStart) && !d.isAfter(todayDay)) {
+          final cur = aMap[d] ?? {'cal': 0, 'protein': 0};
+          aMap[d] = {'cal': cur['cal']! + meal.calories, 'protein': cur['protein']! + meal.protein};
+        }
+      }
+      adherenceData = List.generate(7, (i) {
+        final day = aStart.add(Duration(days: i));
+        final data = aMap[day];
+        final cal = data?['cal'] ?? 0;
+        final protein = data?['protein'] ?? 0;
+        final hasData = data != null;
+        return {
+          'day': day,
+          'calories': cal,
+          'protein': protein,
+          'hasData': hasData,
+          'calAdherent': hasData && cal >= calTarget * 0.8 && cal <= calTarget * 1.2,
+          'proteinAdherent': hasData && protein >= proteinTarget * 0.8,
+        };
+      });
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Nutrition Analytics'),
@@ -112,6 +145,10 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                 ),
               ),
             ),
+            if (adherenceData != null) ...[  
+              const SizedBox(height: 12),
+              _buildAdherenceCard(adherenceData, calTarget),
+            ],
             const SizedBox(height: 12),
             Card(
               child: Padding(
@@ -219,6 +256,117 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildAdherenceCard(List<Map<String, dynamic>> data, int calTarget) {
+    final adherentDays = data.where((d) => d['calAdherent'] == true).length;
+    final daysWithData = data.where((d) => d['hasData'] == true).length;
+    final pct = daysWithData == 0 ? 0 : (adherentDays / 7 * 100).round();
+    final isGood = pct >= 70;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Text('7-Day Adherence',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: isGood
+                        ? Colors.green.withOpacity(0.15)
+                        : Colors.orange.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '$pct%',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: isGood ? Colors.green.shade700 : Colors.orange.shade700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'On target: $adherentDays / 7 days  •  Target: $calTarget kcal ±20%',
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+            ),
+            const SizedBox(height: 14),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: data.map((d) {
+                final day = d['day'] as DateTime;
+                final hasData = d['hasData'] as bool;
+                final adherent = d['calAdherent'] as bool;
+                final dotColor = !hasData
+                    ? Colors.grey.shade300
+                    : adherent
+                        ? Colors.green
+                        : Colors.orange;
+                return Column(
+                  children: [
+                    Text(
+                      DateFormat('EEE').format(day),
+                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w500),
+                    ),
+                    const SizedBox(height: 4),
+                    Container(
+                      width: 28,
+                      height: 28,
+                      decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
+                      child: hasData
+                          ? Center(
+                              child: Icon(
+                                adherent ? Icons.check : Icons.close,
+                                size: 14,
+                                color: Colors.white,
+                              ),
+                            )
+                          : null,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      hasData ? '${d['calories']}' : '–',
+                      style: TextStyle(fontSize: 9, color: Colors.grey.shade600),
+                    ),
+                  ],
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                _legend(Colors.green, 'On target (80–120%)'),
+                const SizedBox(width: 12),
+                _legend(Colors.orange, 'Off target'),
+                const SizedBox(width: 12),
+                _legend(Colors.grey.shade300, 'No data'),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Row _legend(Color color, String label) {
+    return Row(
+      children: [
+        Container(
+          width: 10,
+          height: 10,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 4),
+        Text(label, style: const TextStyle(fontSize: 10)),
+      ],
     );
   }
 }

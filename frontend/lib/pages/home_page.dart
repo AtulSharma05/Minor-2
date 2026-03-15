@@ -5,6 +5,7 @@ import 'analytics_page.dart';
 import 'features_page.dart';
 import 'profile_page.dart';
 import '../services/meal_service.dart';
+import '../services/profile_service.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -19,8 +20,13 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       context.read<MealService>().fetchMeals();
+      await context.read<ProfileService>().fetchProfile();
+      if (!mounted) return;
+      if (context.read<ProfileService>().profile == null) {
+        Navigator.pushNamed(context, '/onboarding');
+      }
     });
   }
 
