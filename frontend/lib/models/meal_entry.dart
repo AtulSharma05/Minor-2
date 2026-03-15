@@ -20,6 +20,7 @@ class MealEntry {
   });
 
   factory MealEntry.fromJson(Map<String, dynamic> json) {
+    final parsed = DateTime.tryParse((json['createdAt'] ?? '').toString());
     return MealEntry(
       id: (json['_id'] ?? json['id']).toString(),
       mealName: (json['mealName'] ?? '').toString(),
@@ -28,7 +29,7 @@ class MealEntry {
       protein: (json['protein'] ?? 0) as int,
       carbs: (json['carbs'] ?? 0) as int,
       fats: (json['fats'] ?? 0) as int,
-      createdAt: DateTime.tryParse((json['createdAt'] ?? '').toString()) ?? DateTime.now(),
+      createdAt: (parsed ?? DateTime.now()).toLocal(),
     );
   }
 

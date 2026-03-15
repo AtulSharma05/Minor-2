@@ -23,10 +23,10 @@ class DashboardPage extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         children: [
           _SummaryCard(
-            calories: mealService.totalCalories,
-            protein: mealService.totalProtein,
-            carbs: mealService.totalCarbs,
-            fats: mealService.totalFats,
+            calories: mealService.todayCalories,
+            protein: mealService.todayProtein,
+            carbs: mealService.todayCarbs,
+            fats: mealService.todayFats,
           ),
           const SizedBox(height: 16),
           Row(
