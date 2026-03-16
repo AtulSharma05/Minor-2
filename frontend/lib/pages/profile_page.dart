@@ -177,36 +177,7 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
             const SizedBox(height: 18),
             if (calculations != null) ...[
-              const Text('Transparent Calculations', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-              const SizedBox(height: 10),
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(14),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (calculations.goalLabel.isNotEmpty) ...[
-                        Text(
-                          calculations.goalLabel,
-                          style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF3D5A40), fontSize: 15),
-                        ),
-                        const SizedBox(height: 6),
-                      ],
-                      Text('BMR (Mifflin-St Jeor): ${calculations.bmr} kcal'),
-                      Text('Maintenance Calories: ${calculations.maintenanceCalories} kcal'),
-                      Text('Recomp Calories: ${calculations.recompCalories} kcal'),
-                      Text('Target Calories: ${calculations.targetCalories} kcal'),
-                      const SizedBox(height: 8),
-                      Text('Protein: ${calculations.proteinG} g (${calculations.proteinCalories} kcal)'),
-                      Text('Carbs: ${calculations.carbsG} g (${calculations.carbCalories} kcal)'),
-                      Text('Fats: ${calculations.fatsG} g (${calculations.fatCalories} kcal)'),
-                      const SizedBox(height: 10),
-                      const Text('Formulas', style: TextStyle(fontWeight: FontWeight.w600)),
-                      ...calculations.formulas.entries.map((e) => Text('- ${e.value}')),
-                    ],
-                  ),
-                ),
-              ),
+              _buildCalculationsSection(calculations),
             ],
             const SizedBox(height: 18),
             ElevatedButton.icon(
@@ -221,6 +192,235 @@ class _ProfilePageState extends State<ProfilePage> {
         ),
       ),
     );
+  }
+
+  // ── Calculations display ────────────────────────────────────────────────────
+
+  Widget _buildCalculationsSection(MacroCalculations c) {
+    final goalColor = _goalColor(_goalType);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Text(
+              'Your Targets',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(width: 8),
+            if (c.goalLabel.isNotEmpty)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                decoration: BoxDecoration(
+                  color: goalColor.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  c.goalLabel,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: goalColor,
+                  ),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        // ── Target calories hero tile ────────────────────────────────────────
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
+          decoration: BoxDecoration(
+            color: goalColor,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.local_fire_department, color: Colors.white, size: 28),
+              const SizedBox(width: 10),
+              Column(
+                children: [
+                  Text(
+                    '${c.targetCalories}',
+                    style: const TextStyle(
+                      fontSize: 34,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const Text(
+                    'kcal / day',
+                    style: TextStyle(color: Colors.white70, fontSize: 13),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // ── Macro tiles ───────────────────────────────────────────────────────
+        Row(
+          children: [
+            _macroTile('Protein', '${c.proteinG}g', '${c.proteinCalories} kcal', Colors.green.shade600, Icons.fitness_center),
+            const SizedBox(width: 8),
+            _macroTile('Carbs', '${c.carbsG}g', '${c.carbCalories} kcal', Colors.orange.shade600, Icons.grain),
+            const SizedBox(width: 8),
+            _macroTile('Fats', '${c.fatsG}g', '${c.fatCalories} kcal', Colors.pink.shade400, Icons.water_drop),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        // ── Step-by-step breakdown (expandable) ───────────────────────────────
+        Card(
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(color: Colors.grey.shade200),
+          ),
+          child: ExpansionTile(
+            tilePadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+            childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+            leading: const Icon(Icons.calculate_outlined, size: 20),
+            title: const Text(
+              'How was this calculated?',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+            ),
+            children: [
+              _breakdownRow('Basal Metabolic Rate (BMR)', '${c.bmr} kcal', null),
+              _breakdownRow('Maintenance Calories', '${c.maintenanceCalories} kcal', 'BMR × activity factor'),
+              _breakdownRow('Target Calories', '${c.targetCalories} kcal', c.goalLabel),
+              const Divider(height: 18),
+              _breakdownRow('Protein', '${c.proteinG} g', '${c.proteinCalories} kcal'),
+              _breakdownRow('Carbohydrates', '${c.carbsG} g', '${c.carbCalories} kcal'),
+              _breakdownRow('Fats', '${c.fatsG} g', '${c.fatCalories} kcal'),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+
+        // ── Formulas (expandable) ─────────────────────────────────────────────
+        Card(
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(color: Colors.grey.shade200),
+          ),
+          child: ExpansionTile(
+            tilePadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+            childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+            leading: const Icon(Icons.science_outlined, size: 20),
+            title: const Text(
+              'Science & Formulas',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+            ),
+            children: c.formulas.entries.map((e) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 6,
+                      height: 6,
+                      margin: const EdgeInsets.fromLTRB(0, 6, 8, 0),
+                      decoration: BoxDecoration(
+                        color: goalColor,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    Expanded(
+                      child: Text(
+                        e.value.toString(),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade700,
+                          height: 1.5,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _macroTile(String label, String amount, String kcal, Color color, IconData icon) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withOpacity(0.25)),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: color, size: 18),
+            const SizedBox(height: 6),
+            Text(
+              amount,
+              style: TextStyle(
+                  fontSize: 18, fontWeight: FontWeight.w800, color: color),
+            ),
+            Text(
+              label,
+              style: TextStyle(
+                  fontSize: 11, fontWeight: FontWeight.w500, color: color),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              kcal,
+              style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _breakdownRow(String label, String value, String? sub) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label,
+                    style: const TextStyle(
+                        fontSize: 13, fontWeight: FontWeight.w500)),
+                if (sub != null && sub.isNotEmpty)
+                  Text(sub,
+                      style: TextStyle(
+                          fontSize: 11, color: Colors.grey.shade500)),
+              ],
+            ),
+          ),
+          Text(
+            value,
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _goalColor(String goalType) {
+    switch (goalType) {
+      case 'fat_loss':    return Colors.orange.shade600;
+      case 'muscle_gain': return Colors.blue.shade600;
+      case 'maintenance': return const Color(0xFF3D5A40);
+      default:            return Colors.purple.shade500; // recomp
+    }
   }
 
   Widget _goalChip(String value, String emoji, String label) {
