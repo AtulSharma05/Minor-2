@@ -29,14 +29,20 @@ project2/
 │       ├── models/
 │       │   ├── User.js       name, email, passwordHash
 │       │   ├── Meal.js       userId, mealName, mealType, calories, protein, carbs, fats
-│       │   └── UserProfile.js weightKg, heightCm, age, bodyFatPercent, gender, activityLevel, goalType, aggressiveness
+│       │   ├── UserProfile.js weightKg, heightCm, age, bodyFatPercent, gender, activityLevel, goalType, aggressiveness
+│       │   ├── Food.js       food master (nutrition, tags, mealSlots)
+│       │   └── MealPlan.js   generated 7-day plans with meals + totals
 │       ├── routes/
 │       │   ├── auth.routes.js    /api/v1/auth
+│       │   ├── foods.routes.js   /api/v1/foods
 │       │   ├── meals.routes.js   /api/v1/meals
 │       │   ├── plans.routes.js   /api/v1/plans
 │       │   └── profile.routes.js /api/v1/profile
 │       ├── utils/
-│       │   └── nutritionCalculator.js  Mifflin-St Jeor BMR + macro engine
+│       │   ├── nutritionCalculator.js  Mifflin-St Jeor BMR + macro engine
+│       │   └── mealPlanner.js         profile-driven 7-day meal plan generator
+│       ├── scripts/
+│       │   └── seedFoods.js      seeds food dataset (meal-slot aware)
 │       └── server.js
 └── frontend/
     └── lib/
@@ -51,7 +57,7 @@ project2/
         │   ├── auth_service.dart         Login / register
         │   ├── meal_service.dart         Meal CRUD + today getters
         │   ├── profile_service.dart      Profile fetch / save
-        │   └── nutrition_plan_service.dart  AI plan generation
+        │   └── nutrition_plan_service.dart  7-day plan generation (profile-target based)
         └── pages/
             ├── welcome_page.dart
             ├── login_page.dart
@@ -79,6 +85,8 @@ npm install
 cp .env.example .env          # fill MONGODB_URI and JWT_SECRET
 npm run dev                   # nodemon — hot reload
 # or: npm start               # production
+# optional: reseed food data for meal planner
+node src/scripts/seedFoods.js
 ```
 
 The server starts on `http://localhost:4000`.
@@ -209,9 +217,14 @@ If `ProfileService.calculations` is available it renders four circular `_Progres
 - **Delete** with confirmation dialog → `MealService.removeMeal(id)` → `DELETE /api/v1/meals/:id`
 - **Pull-to-refresh**
 
-### AI Nutrition Plan
+### Meal Planner (7-Day, Profile-Driven)
 
-`FeaturesPage` → `CreateNutritionPlanPage` sends a free-text goal description to `POST /api/v1/plans/generate`. The backend returns a list of suggested meals with macro breakdowns.
+`FeaturesPage` → `CreateNutritionPlanPage` calls `POST /api/v1/plans/generate` with dietary constraints only.
+
+- Target calories/macros are taken from profile calculations (`goalType`, `aggressiveness`, activity, body metrics) from `UserProfile`.
+- Plan length is fixed to 7 days.
+- Dataset is meal-slot aware (`mealSlots`) so Breakfast/Lunch/Dinner/Snack foods are selected only for matching meal types.
+- Supports filters like `vegetarian`, `vegan`, `dairyFree`, `glutenFree`, `indianOnly`, and `excludedFoods`.
 
 ---
 
@@ -243,11 +256,22 @@ All endpoints require `Authorization: Bearer <token>` unless marked public.
 | GET | `/` | — | Current profile + calculated targets |
 | PUT | `/` | `{ weightKg, heightCm, age, bodyFatPercent?, gender, activityLevel, goalType, aggressiveness }` | Upsert profile, returns profile + calculations |
 
+### Foods — `/api/v1/foods`
+
+| Method | Path | Query / Body | Description |
+|---|---|---|---|
+| GET | `/` | `?category=&search=&limit=` | List foods from planner dataset |
+| POST | `/` | food object | Create a food entry |
+
 ### Plans — `/api/v1/plans`
 
 | Method | Path | Body | Description |
 |---|---|---|---|
-| POST | `/generate` | `{ goal }` | Returns AI-suggested meal plan |
+| POST | `/generate` | `{ vegetarian, vegan, dairyFree, glutenFree, indianOnly, excludedFoods[] }` | Generates and stores a fixed 7-day plan using profile targets |
+| GET | `/` | — | List plans for logged-in user |
+| GET | `/:id` | — | Get one plan |
+| PUT | `/:id` | `{ planName?, status? }` | Update plan metadata |
+| DELETE | `/:id` | — | Delete plan |
 
 ---
 
@@ -273,6 +297,23 @@ All endpoints require `Authorization: Bearer <token>` unless marked public.
   aggressiveness (1–3), createdAt, updatedAt }
 ```
 
+### Food
+```js
+{ name, category, caloriesPer100g, proteinG, carbsG, fatsG,
+  fiberG, servingSizeG, mealSlots (Breakfast|Lunch|Dinner|Snack)[],
+  tags[], costUSD, createdAt, updatedAt }
+```
+
+### MealPlan
+```js
+{ userId (ObjectId), planName, startDate, duration: 7,
+  meals: [{ date, mealType, foodItems: [{ foodId, foodName, servings, calories, protein, carbs, fats }], totals }],
+  targets: { calories, protein, carbs, fats },
+  planTotals: { calories, protein, carbs, fats },
+  constraints: { vegetarian, vegan, dairyFree, glutenFree, indianOnly, excludedFoods[] },
+  status (draft|active|completed), createdAt, updatedAt }
+```
+
 ---
 
 ## Flutter Provider Tree
@@ -282,7 +323,7 @@ ApiService               (plain Provider — Dio wrapper, holds JWT token)
   └── AuthService        (plain Provider — login/register/logout)
   └── MealService        (ChangeNotifier — meal list, today getters, stats)
   └── ProfileService     (ChangeNotifier — profile + macro calculations)
-  └── NutritionPlanService (plain Provider — plan generation)
+  └── NutritionPlanService (plain Provider — 7-day plan generation)
 ```
 
 All services receive `ApiService` through `context.read<ApiService>()` at creation time. No service holds any UI reference — they only call `notifyListeners()`.
