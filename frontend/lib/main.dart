@@ -5,6 +5,7 @@ import 'services/api_service.dart';
 import 'services/meal_service.dart';
 import 'services/nutrition_plan_service.dart';
 import 'services/profile_service.dart';
+import 'services/food_service.dart';
 import 'theme/app_theme.dart';
 import 'pages/welcome_page.dart';
 import 'pages/login_page.dart';
@@ -14,6 +15,8 @@ import 'pages/log_meal_page.dart';
 import 'pages/meal_history_page.dart';
 import 'pages/create_nutrition_plan_page.dart';
 import 'pages/onboarding_page.dart';
+import 'pages/verify_email_page.dart';
+import 'pages/forgot_password_page.dart';
 
 void main() {
   runApp(const NutriPalApp());
@@ -39,6 +42,9 @@ class NutriPalApp extends StatelessWidget {
         Provider<NutritionPlanService>(
           create: (context) => NutritionPlanService(context.read<ApiService>()),
         ),
+        Provider<FoodService>(
+          create: (context) => FoodService(context.read<ApiService>()),
+        ),
       ],
       child: MaterialApp(
         title: 'NutriPal',
@@ -54,6 +60,26 @@ class NutriPalApp extends StatelessWidget {
           '/meal-history': (_) => const MealHistoryPage(),
           '/create-nutrition-plan': (_) => const CreateNutritionPlanPage(),
           '/onboarding': (_) => const OnboardingPage(),
+          '/forgot-password': (_) => const ForgotPasswordPage(),
+          '/verify-email': (context) {
+            final args = ModalRoute.of(context)?.settings.arguments;
+
+            if (args is Map<String, dynamic>) {
+              final email = (args['email'] ?? '').toString();
+              final devVerificationToken = (args['devVerificationToken'] ?? '')
+                  .toString();
+
+              return VerifyEmailPage(
+                email: email,
+                initialToken: devVerificationToken.isEmpty
+                    ? null
+                    : devVerificationToken,
+              );
+            }
+
+            final email = args is String ? args : '';
+            return VerifyEmailPage(email: email);
+          },
         },
       ),
     );
