@@ -39,16 +39,16 @@ class _OnboardingPageState extends State<OnboardingPage> {
     super.dispose();
   }
 
-  void _next() {
+  Future<void> _next() async {
     if (_currentPage == 0 && !_step1Key.currentState!.validate()) return;
     if (_currentPage < 2) {
-      _pageController.nextPage(
+      await _pageController.nextPage(
         duration: const Duration(milliseconds: 350),
         curve: Curves.easeInOut,
       );
       setState(() => _currentPage++);
     } else {
-      _finish();
+      await _finish();
     }
   }
 
@@ -63,21 +63,60 @@ class _OnboardingPageState extends State<OnboardingPage> {
   }
 
   Future<void> _finish() async {
+    final weightKg = double.tryParse(_weightCtrl.text.trim());
+    final heightCm = double.tryParse(_heightCtrl.text.trim());
+    final age = int.tryParse(_ageCtrl.text.trim());
+    final bodyFatRaw = _bodyFatCtrl.text.trim();
+    final bodyFatPercent = bodyFatRaw.isEmpty
+        ? null
+        : double.tryParse(bodyFatRaw);
+
+    if (weightKg == null ||
+        heightCm == null ||
+        age == null ||
+        (bodyFatRaw.isNotEmpty && bodyFatPercent == null)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter valid profile values before continuing.'),
+        ),
+      );
+      return;
+    }
+
     final profile = UserProfile(
-      weightKg: double.parse(_weightCtrl.text.trim()),
-      heightCm: double.parse(_heightCtrl.text.trim()),
-      age: int.parse(_ageCtrl.text.trim()),
-      bodyFatPercent: _bodyFatCtrl.text.trim().isEmpty
-          ? null
-          : double.parse(_bodyFatCtrl.text.trim()),
+      weightKg: weightKg,
+      heightCm: heightCm,
+      age: age,
+      bodyFatPercent: bodyFatPercent,
       gender: _gender,
       activityLevel: _activityLevel,
       goalType: _goalType,
       aggressiveness: _aggressiveness,
     );
-    await context.read<ProfileService>().saveProfile(profile);
-    if (!mounted) return;
-    Navigator.pushReplacementNamed(context, '/home');
+
+    try {
+      await context.read<ProfileService>().saveProfile(profile);
+      if (!mounted) return;
+      Navigator.pushReplacementNamed(context, '/home');
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not save your profile: ${_friendlyError(e)}'),
+        ),
+      );
+    }
+  }
+
+  String _friendlyError(Object error) {
+    final message = error.toString();
+    if (message.contains('SocketException')) {
+      return 'cannot reach backend. Make sure server is running.';
+    }
+    if (message.startsWith('Exception: ')) {
+      return message.substring('Exception: '.length);
+    }
+    return message;
   }
 
   @override
@@ -93,11 +132,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
               child: PageView(
                 controller: _pageController,
                 physics: const NeverScrollableScrollPhysics(),
-                children: [
-                  _buildStep1(),
-                  _buildStep2(),
-                  _buildStep3(),
-                ],
+                children: [_buildStep1(), _buildStep2(), _buildStep3()],
               ),
             ),
             _buildNavButtons(profileService.isLoading),
@@ -182,10 +217,9 @@ class _OnboardingPageState extends State<OnboardingPage> {
             const SizedBox(height: 16),
             Text(
               "Let's get to know you",
-              style: Theme.of(context)
-                  .textTheme
-                  .headlineSmall
-                  ?.copyWith(fontWeight: FontWeight.w700),
+              style: Theme.of(
+                context,
+              ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 6),
             Text(
@@ -195,19 +229,47 @@ class _OnboardingPageState extends State<OnboardingPage> {
             const SizedBox(height: 28),
             Row(
               children: [
-                Expanded(child: _numField(_weightCtrl, 'Weight (kg)')),
+                Expanded(
+                  child: _numField(
+                    _weightCtrl,
+                    'Weight (kg)',
+                    minValue: 20,
+                    maxValue: 300,
+                  ),
+                ),
                 const SizedBox(width: 12),
-                Expanded(child: _numField(_heightCtrl, 'Height (cm)')),
+                Expanded(
+                  child: _numField(
+                    _heightCtrl,
+                    'Height (cm)',
+                    minValue: 100,
+                    maxValue: 250,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 12),
             Row(
               children: [
-                Expanded(child: _numField(_ageCtrl, 'Age', integer: true)),
+                Expanded(
+                  child: _numField(
+                    _ageCtrl,
+                    'Age',
+                    integer: true,
+                    minValue: 12,
+                    maxValue: 100,
+                  ),
+                ),
                 const SizedBox(width: 12),
                 Expanded(
-                    child: _numField(_bodyFatCtrl, 'Body fat % (opt)',
-                        optional: true)),
+                  child: _numField(
+                    _bodyFatCtrl,
+                    'Body fat % (opt)',
+                    optional: true,
+                    minValue: 3,
+                    maxValue: 60,
+                  ),
+                ),
               ],
             ),
           ],
@@ -227,10 +289,9 @@ class _OnboardingPageState extends State<OnboardingPage> {
           const SizedBox(height: 16),
           Text(
             'About you',
-            style: Theme.of(context)
-                .textTheme
-                .headlineSmall
-                ?.copyWith(fontWeight: FontWeight.w700),
+            style: Theme.of(
+              context,
+            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 6),
           Text(
@@ -248,8 +309,10 @@ class _OnboardingPageState extends State<OnboardingPage> {
             ],
           ),
           const SizedBox(height: 24),
-          const Text('Activity Level',
-              style: TextStyle(fontWeight: FontWeight.w600)),
+          const Text(
+            'Activity Level',
+            style: TextStyle(fontWeight: FontWeight.w600),
+          ),
           const SizedBox(height: 8),
           _activityOption('sedentary', 'Sedentary', '< 1 session/week'),
           _activityOption('light', 'Light', '1–3 sessions/week'),
@@ -273,10 +336,9 @@ class _OnboardingPageState extends State<OnboardingPage> {
           const SizedBox(height: 16),
           Text(
             "What's your goal?",
-            style: Theme.of(context)
-                .textTheme
-                .headlineSmall
-                ?.copyWith(fontWeight: FontWeight.w700),
+            style: Theme.of(
+              context,
+            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 6),
           Text(
@@ -284,19 +346,39 @@ class _OnboardingPageState extends State<OnboardingPage> {
             style: TextStyle(color: Colors.grey.shade600),
           ),
           const SizedBox(height: 28),
-          _goalCard('fat_loss', '🔥', 'Fat Loss', 'Calorie deficit to burn fat'),
-          const SizedBox(height: 10),
-          _goalCard('recomp', '🔄', 'Recomposition',
-              'Lose fat while preserving muscle'),
+          _goalCard(
+            'fat_loss',
+            '🔥',
+            'Fat Loss',
+            'Calorie deficit to burn fat',
+          ),
           const SizedBox(height: 10),
           _goalCard(
-              'muscle_gain', '💪', 'Muscle Gain', 'Calorie surplus to build muscle'),
+            'recomp',
+            '🔄',
+            'Recomposition',
+            'Lose fat while preserving muscle',
+          ),
           const SizedBox(height: 10),
-          _goalCard('maintenance', '⚖️', 'Maintenance', 'Maintain current weight'),
+          _goalCard(
+            'muscle_gain',
+            '💪',
+            'Muscle Gain',
+            'Calorie surplus to build muscle',
+          ),
+          const SizedBox(height: 10),
+          _goalCard(
+            'maintenance',
+            '⚖️',
+            'Maintenance',
+            'Maintain current weight',
+          ),
           if (showAgg) ...[
             const SizedBox(height: 20),
-            const Text('How aggressive?',
-                style: TextStyle(fontWeight: FontWeight.w600)),
+            const Text(
+              'How aggressive?',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
             const SizedBox(height: 8),
             Row(
               children: [
@@ -320,6 +402,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
     String label, {
     bool optional = false,
     bool integer = false,
+    double? minValue,
+    double? maxValue,
   }) {
     return TextFormField(
       controller: ctrl,
@@ -331,7 +415,19 @@ class _OnboardingPageState extends State<OnboardingPage> {
         final raw = v?.trim() ?? '';
         if (optional && raw.isEmpty) return null;
         if (raw.isEmpty) return 'Required';
-        if (double.tryParse(raw) == null) return 'Invalid';
+
+        final numValue = integer
+            ? int.tryParse(raw)?.toDouble()
+            : double.tryParse(raw);
+        if (numValue == null) {
+          return integer ? 'Enter a whole number' : 'Invalid';
+        }
+        if (minValue != null && numValue < minValue) {
+          return 'Min ${minValue.toStringAsFixed(minValue % 1 == 0 ? 0 : 1)}';
+        }
+        if (maxValue != null && numValue > maxValue) {
+          return 'Max ${maxValue.toStringAsFixed(maxValue % 1 == 0 ? 0 : 1)}';
+        }
         return null;
       },
     );
@@ -354,9 +450,11 @@ class _OnboardingPageState extends State<OnboardingPage> {
           ),
           child: Column(
             children: [
-              Icon(icon,
-                  color: selected ? Colors.white : Colors.grey.shade600,
-                  size: 30),
+              Icon(
+                icon,
+                color: selected ? Colors.white : Colors.grey.shade600,
+                size: 30,
+              ),
               const SizedBox(height: 6),
               Text(
                 label,
@@ -386,8 +484,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 : Colors.white,
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
-              color:
-                  selected ? const Color(0xFF3D5A40) : Colors.grey.shade300,
+              color: selected ? const Color(0xFF3D5A40) : Colors.grey.shade300,
               width: selected ? 1.5 : 1,
             ),
           ),
@@ -397,17 +494,26 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(label,
-                        style: const TextStyle(fontWeight: FontWeight.w600)),
-                    Text(subtitle,
-                        style: TextStyle(
-                            fontSize: 12, color: Colors.grey.shade600)),
+                    Text(
+                      label,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
                   ],
                 ),
               ),
               if (selected)
-                const Icon(Icons.check_circle,
-                    color: Color(0xFF3D5A40), size: 20),
+                const Icon(
+                  Icons.check_circle,
+                  color: Color(0xFF3D5A40),
+                  size: 20,
+                ),
             ],
           ),
         ),
@@ -415,8 +521,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
     );
   }
 
-  Widget _goalCard(
-      String value, String emoji, String label, String subtitle) {
+  Widget _goalCard(String value, String emoji, String label, String subtitle) {
     final selected = _goalType == value;
     return GestureDetector(
       onTap: () => setState(() => _goalType = value),
@@ -440,18 +545,26 @@ class _OnboardingPageState extends State<OnboardingPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(label,
-                      style: const TextStyle(
-                          fontWeight: FontWeight.w600, fontSize: 15)),
-                  Text(subtitle,
-                      style: TextStyle(
-                          fontSize: 12, color: Colors.grey.shade600)),
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 15,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  ),
                 ],
               ),
             ),
             if (selected)
-              const Icon(Icons.check_circle,
-                  color: Color(0xFF3D5A40), size: 20),
+              const Icon(
+                Icons.check_circle,
+                color: Color(0xFF3D5A40),
+                size: 20,
+              ),
           ],
         ),
       ),
@@ -469,8 +582,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
             color: selected ? const Color(0xFF3D5A40) : Colors.white,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
-              color:
-                  selected ? const Color(0xFF3D5A40) : Colors.grey.shade300,
+              color: selected ? const Color(0xFF3D5A40) : Colors.grey.shade300,
             ),
           ),
           child: Text(

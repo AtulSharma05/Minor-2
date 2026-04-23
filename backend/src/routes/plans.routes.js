@@ -25,6 +25,10 @@ router.post('/generate', requireAuth, asyncHandler(async (req, res) => {
     glutenFree = false,
     indianOnly = false,
     excludedFoods = [],
+    // ✨ NEW: Macro preferences
+    highProtein = false,
+    lowCarb = false,
+    calorieRange = { min: 1800, max: 2400 },
   } = req.body;
 
   const profile = await UserProfile.findOne({ userId: userObjectId(req.user.id) });
@@ -41,9 +45,17 @@ router.post('/generate', requireAuth, asyncHandler(async (req, res) => {
     excludedFoods,
   };
 
+  // ✨ NEW: Pass preferences to meal planner
+  const preferences = {
+    highProtein,
+    lowCarb,
+    calorieRange,
+  };
+
   const generated = await generateMealPlan({
     userProfile: profile.toObject(),
     constraints,
+    preferences,
   });
 
   if (generated.error) {
@@ -59,12 +71,14 @@ router.post('/generate', requireAuth, asyncHandler(async (req, res) => {
     targets: generated.targets,
     planTotals: generated.planTotals,
     constraints,
+    preferences,
     status: 'active',
   });
 
   return res.status(201).json({
     planId: mealPlan._id,
     planName: mealPlan.planName,
+    planDescription: generated.planDescription,
     duration: mealPlan.duration,
     startDate: mealPlan.startDate,
     targets: mealPlan.targets,
